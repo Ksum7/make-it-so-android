@@ -1,5 +1,6 @@
 package com.google.firebase.example.makeitso.data.repository
 
+import android.content.Context
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.example.makeitso.data.datasource.AuthRemoteDataSource
 import kotlinx.coroutines.flow.Flow
@@ -20,11 +21,15 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun signUp(email: String, password: String) {
-       authRemoteDataSource.linkAccount(email, password)
+        authRemoteDataSource.linkAccount(email, password)
     }
 
-    fun signOut() {
-        authRemoteDataSource.signOut()
+    suspend fun signInWithGoogle(idToken: String) {
+        authRemoteDataSource.signInWithGoogle(idToken)
+    }
+
+    suspend fun signOut(context: Context) {
+        authRemoteDataSource.signOut(context)
     }
 
     suspend fun deleteAccount() {

@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -18,10 +20,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -30,13 +35,20 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.Companion.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
 import com.google.firebase.example.makeitso.R
 import com.google.firebase.example.makeitso.data.model.ErrorMessage
 import com.google.firebase.example.makeitso.ui.shared.StandardButton
 import com.google.firebase.example.makeitso.ui.theme.DarkBlue
 import com.google.firebase.example.makeitso.ui.theme.MakeItSoTheme
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -57,6 +69,7 @@ fun SignInScreen(
         SignInScreenContent(
             openSignUpScreen = openSignUpScreen,
             signIn = viewModel::signIn,
+            signInWithGoogle = viewModel::signInWithGoogle,
             showErrorSnackbar = showErrorSnackbar
         )
     }
@@ -67,11 +80,14 @@ fun SignInScreen(
 fun SignInScreenContent(
     openSignUpScreen: () -> Unit,
     signIn: (String, String, (ErrorMessage) -> Unit) -> Unit,
+    signInWithGoogle: (String, (ErrorMessage) -> Unit) -> Unit,
     showErrorSnackbar: (ErrorMessage) -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
@@ -142,8 +158,47 @@ fun SignInScreenContent(
 
                 Spacer(Modifier.size(16.dp))
 
-                //TODO: Uncomment line below when Google Authentication is implemented
-                //AuthWithGoogleButton(R.string.sign_in_with_google) { }
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                val credentialManager = CredentialManager.create(context)
+                                val googleIdOption = GetGoogleIdOption.Builder()
+                                    .setServerClientId(context.getString(R.string.default_web_client_id))
+                                    .setFilterByAuthorizedAccounts(false)
+                                    .setAutoSelectEnabled(false)
+                                    .build()
+                                val request = GetCredentialRequest.Builder()
+                                    .addCredentialOption(googleIdOption)
+                                    .build()
+
+                                val result = credentialManager.getCredential(context, request)
+                                val credential = result.credential
+
+                                if (credential is androidx.credentials.CustomCredential &&
+                                    credential.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                                ) {
+                                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                                    signInWithGoogle(googleIdTokenCredential.idToken, showErrorSnackbar)
+                                }
+                            } catch (e: GetCredentialException) {
+                                showErrorSnackbar(ErrorMessage.IdError(R.string.google_sign_in_failed))
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color.Black
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.sign_in_with_google),
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                    )
+                }
             }
 
             Column(
@@ -177,6 +232,7 @@ fun SignInScreenPreview() {
         SignInScreenContent(
             openSignUpScreen = {},
             signIn = { _, _, _ -> },
+            signInWithGoogle = { _, _ -> },
             showErrorSnackbar = {}
         )
     }

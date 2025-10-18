@@ -27,4 +27,14 @@ class SignInViewModel @Inject constructor(
             _shouldRestartApp.value = true
         }
     }
+
+    fun signInWithGoogle(
+        idToken: String,
+        showErrorSnackbar: (ErrorMessage) -> Unit
+    ) {
+        launchCatching(showErrorSnackbar) {
+            authRepository.signInWithGoogle(idToken)
+            _shouldRestartApp.value = true
+        }
+    }
 }

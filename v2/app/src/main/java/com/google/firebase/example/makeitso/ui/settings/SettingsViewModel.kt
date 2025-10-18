@@ -1,5 +1,7 @@
 package com.google.firebase.example.makeitso.ui.settings
 
+import android.content.Context
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.example.makeitso.MainViewModel
 import com.google.firebase.example.makeitso.data.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,16 +22,39 @@ class SettingsViewModel @Inject constructor(
     val isAnonymous: StateFlow<Boolean>
         get() = _isAnonymous.asStateFlow()
 
+    private val _email = MutableStateFlow("")
+    val email: StateFlow<String>
+        get() = _email.asStateFlow()
+
+    private val _displayName = MutableStateFlow("")
+    val displayName: StateFlow<String>
+        get() = _displayName.asStateFlow()
+
+    private val _authMethod = MutableStateFlow("")
+    val authMethod: StateFlow<String>
+        get() = _authMethod.asStateFlow()
+
     fun loadCurrentUser() {
         launchCatching {
-            val currentUser = authRepository.currentUser
-            _isAnonymous.value = currentUser != null && currentUser.isAnonymous
+            val currentUser = authRepository.currentUser ?: return@launchCatching
+            _isAnonymous.value = currentUser.isAnonymous
+            if (!currentUser.isAnonymous) {
+                _email.value = currentUser.email ?: ""
+                _displayName.value = currentUser.displayName ?: ""
+                _authMethod.value = if (currentUser.providerData.any { it.providerId == "google.com" }) {
+                    "Google"
+                } else if (currentUser.providerData.any { it.providerId == "password" }) {
+                    "Email"
+                } else {
+                    "Unknown"
+                }
+            }
         }
     }
 
-    fun signOut() {
+    fun signOut(context: Context) {
         launchCatching {
-            authRepository.signOut()
+            authRepository.signOut(context)
             _shouldRestartApp.value = true
         }
     }

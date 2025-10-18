@@ -1,12 +1,15 @@
 package com.google.firebase.example.makeitso.ui.settings
 
+import android.content.Context
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonColors
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -15,13 +18,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,8 +37,8 @@ import com.google.firebase.example.makeitso.ui.shared.StandardButton
 import com.google.firebase.example.makeitso.ui.theme.DarkBlue
 import com.google.firebase.example.makeitso.ui.theme.DarkGrey
 import com.google.firebase.example.makeitso.ui.theme.LightRed
-import com.google.firebase.example.makeitso.ui.theme.MakeItSoTheme
 import kotlinx.serialization.Serializable
+import kotlin.reflect.KFunction1
 
 @Serializable
 object SettingsRoute
@@ -56,7 +61,10 @@ fun SettingsScreen(
             openSignInScreen = openSignInScreen,
             signOut = viewModel::signOut,
             deleteAccount = viewModel::deleteAccount,
-            isAnonymous = isAnonymous
+            isAnonymous = isAnonymous,
+            email = viewModel.email.collectAsStateWithLifecycle(),
+            displayName = viewModel.displayName.collectAsStateWithLifecycle(),
+            authMethod = viewModel.authMethod.collectAsStateWithLifecycle()
         )
     }
 }
@@ -66,11 +74,15 @@ fun SettingsScreen(
 fun SettingsScreenContent(
     loadCurrentUser: () -> Unit,
     openSignInScreen: () -> Unit,
-    signOut: () -> Unit,
+    signOut: KFunction1<Context, Unit>,
     deleteAccount: () -> Unit,
-    isAnonymous: Boolean
+    isAnonymous: Boolean,
+    email: State<String>,
+    displayName: State<String>,
+    authMethod: State<String>
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
+    val context = LocalContext.current
 
     LaunchedEffect(true) {
         loadCurrentUser()
@@ -104,10 +116,18 @@ fun SettingsScreenContent(
                     }
                 )
             } else {
+                UserInfoCard(
+                    authMethod = authMethod.value,
+                    email = email.value,
+                    displayName = displayName.value
+                )
+
+                Spacer(Modifier.size(16.dp))
+
                 StandardButton(
                     label = R.string.sign_out,
                     onButtonClick = {
-                        signOut()
+                        signOut(context)
                     }
                 )
 
@@ -115,6 +135,37 @@ fun SettingsScreenContent(
 
                 DeleteAccountButton(deleteAccount)
             }
+        }
+    }
+}
+
+@Composable
+fun UserInfoCard(
+    authMethod: String,
+    email: String,
+    displayName: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = "Signed in with: $authMethod",
+                fontWeight = FontWeight.Bold,
+                color = DarkBlue
+            )
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = "Email: $email",
+                color = DarkBlue
+            )
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = "Display Name: $displayName",
+                color = DarkBlue
+            )
         }
     }
 }
@@ -168,18 +219,4 @@ private fun getDialogButtonColors(): ButtonColors {
         disabledContainerColor = LightRed,
         disabledContentColor = DarkGrey
     )
-}
-
-@Composable
-@Preview(showSystemUi = true)
-fun SettingsScreenPreview() {
-    MakeItSoTheme(darkTheme = true) {
-        SettingsScreenContent(
-            loadCurrentUser = {},
-            openSignInScreen = {},
-            signOut = {},
-            deleteAccount = {},
-            isAnonymous = false
-        )
-    }
 }
